@@ -1,0 +1,127 @@
+# Competitor Analysis & Research Workflow — Implementation Plan
+
+## Overview
+
+A workflow that takes your business profile + brand assets as input, discovers and analyzes competitors, and outputs a **branded PDF report** with actionable insights.
+
+---
+
+## Workflow Inputs
+
+| Input | Format | Stored Where |
+|---|---|---|
+| Business profile (name, industry, URL, value props, target audience) | Markdown / JSON | `workflows/config/business_profile.json` |
+| Brand guidelines (colors, fonts, tone) | JSON | `workflows/config/brand_config.json` |
+| Company logo | Image file (PNG/SVG) | `workflows/config/logo.png` |
+
+---
+
+## Pipeline — 5 Phases
+
+```mermaid
+graph LR
+    A["1. Business Profile<br/>& Brand Setup"] --> B["2. Competitor<br/>Discovery"]
+    B --> C["3. Deep Research<br/>per Competitor"]
+    C --> D["4. Analysis &<br/>Insights"]
+    D --> E["5. Branded PDF<br/>Generation"]
+```
+
+### Phase 1 — Business Profile & Brand Setup
+**Tool:** `tools/setup_profile.py`
+- Store your business info (name, industry, URL, offerings, target market, differentiators)
+- Store brand config (primary/secondary colors, fonts, logo path)
+- This only needs to be done once — reused on every subsequent run
+
+### Phase 2 — Competitor Discovery
+**Tool:** `tools/discover_competitors.py`
+- Uses web search API to find competitors based on your industry, keywords, and offerings
+- Returns a list of 5–10 competitors with name, URL, and brief description
+- Saves results to `.tmp/competitors_raw.json`
+
+> [!IMPORTANT]
+> **Decision needed:** What search API should we use? Options:
+> - **SerpAPI** (~$50/mo, most reliable Google results)
+> - **Google Custom Search API** (free tier: 100 queries/day)
+> - **Tavily API** (built for AI agents, good summaries, free tier available)
+> - **Brave Search API** (free tier: 2,000 queries/mo)
+
+### Phase 3 — Deep Research per Competitor
+**Tool:** `tools/research_competitor.py`
+- For each discovered competitor, scrapes/searches for:
+
+| Data Point | Source |
+|---|---|
+| Products & pricing | Website scraping |
+| Key messaging & positioning | Homepage / About page |
+| Strengths (what they do well) | Reviews, features, content |
+| Weaknesses (gaps & complaints) | Review sites, forums |
+| Content strategy | Blog, social presence |
+| Tech stack (optional) | BuiltWith / Wappalyzer API |
+
+- Saves structured data per competitor to `.tmp/competitor_{name}.json`
+
+### Phase 4 — Analysis & Insights
+**Tool:** `tools/generate_analysis.py`
+- Compares your business profile against all competitor data
+- Produces:
+  - **Competitive landscape overview** — who's out there and how they position
+  - **Feature/offering comparison matrix**
+  - **Strengths to learn from** — what competitors do well that you could adopt
+  - **Gaps & opportunities** — areas competitors are weak or missing entirely
+  - **Threats** — where competitors outperform you
+  - **Recommended action items** — prioritized list of improvements
+- Output: `.tmp/analysis_report.json`
+
+### Phase 5 — Branded PDF Generation
+**Tool:** `tools/generate_pdf.py`
+- Reads analysis data + brand config + logo
+- Generates a polished, multi-page PDF with:
+  - Cover page with your logo and report title
+  - Table of contents
+  - Executive summary
+  - Sections for each analysis area
+  - Competitor profile cards
+  - Comparison tables/charts
+  - Action items page
+- Uses your brand colors, typography, and logo throughout
+- **Library:** `weasyprint` (HTML/CSS → PDF) or `reportlab` (programmatic PDF)
+- Output: final PDF delivered to a specified location
+
+> [!TIP]
+> I'd recommend **WeasyPrint** (HTML/CSS → PDF). It lets us design the report like a web page with your brand CSS, then convert it to PDF. Much easier to get a polished look compared to programmatic PDF builders.
+
+---
+
+## Proposed File Structure (after build)
+
+```
+tools/
+├── setup_profile.py          # Phase 1: Save business & brand config
+├── discover_competitors.py   # Phase 2: Find competitors via search API
+├── research_competitor.py    # Phase 3: Deep-dive each competitor
+├── generate_analysis.py      # Phase 4: Compare & produce insights
+└── generate_pdf.py           # Phase 5: Branded PDF output
+
+workflows/
+├── competitor_analysis.md    # The SOP tying it all together
+└── config/
+    ├── business_profile.json # Your business info
+    ├── brand_config.json     # Colors, fonts, styling
+    └── logo.png              # Your company logo
+```
+
+---
+
+## Questions Before I Build
+
+1. **What's your business?** Give me your company name, website URL, industry, what you sell/offer, and who your target customers are. I'll save all of this.
+
+2. **Do you already know some competitors**, or do you want me to discover them entirely from scratch?
+
+3. **Search API preference** — Do you already have a SerpAPI, Tavily, or Google Custom Search key? If not, I'd suggest **Tavily** (free tier, agent-friendly) or **Brave Search** (free tier, 2K queries/mo).
+
+4. **Brand assets** — Can you drop your logo file into the project folder and share your brand colors (hex codes), fonts, and any style preferences?
+
+5. **PDF depth** — Do you want a concise executive brief (~5 pages) or a deep-dive report (~15-20 pages)?
+
+6. **How often will you run this?** One-off, or something you want to re-run monthly to track changes?
