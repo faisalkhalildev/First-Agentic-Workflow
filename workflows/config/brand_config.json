@@ -1,0 +1,31 @@
+{
+  "company_name": "Shah Faisal Khalil",
+  "company_initials": "SF",
+  "logo_path": "workflows/config/logo.png",
+  "banner_path": "shah.jpg",
+  "colors": {
+    "primary_gold": "#D4AF37",
+    "primary_gold_light": "#E8C84A",
+    "primary_gold_dark": "#B8960C",
+    "background_dark": "#111111",
+    "background_darker": "#0A0A0A",
+    "text_white": "#FFFFFF",
+    "text_light": "#F5F5F5",
+    "text_muted": "#AAAAAA",
+    "accent_charcoal": "#1A1A1A",
+    "border_gold": "#C5A55A",
+    "surface_dark": "#1E1E1E"
+  },
+  "typography": {
+    "heading_font": "Playfair Display",
+    "body_font": "Inter",
+    "script_font": "Great Vibes",
+    "heading_weight": "700",
+    "body_weight": "400"
+  },
+  "style": {
+    "tone": "premium, luxurious, professional",
+    "border_radius": "4px",
+    "card_shadow": "0 4px 20px rgba(212, 175, 55, 0.15)"
+  }
+}
