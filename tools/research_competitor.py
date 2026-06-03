@@ -108,13 +108,13 @@ def scrape_competitor_pages(competitor):
 
 
 def analyze_competitor_with_ai(competitor, scraped_data, business_profile):
-    """Use OpenAI to analyze scraped competitor data and produce structured insights."""
-    api_key = os.getenv("OPENAI_API_KEY")
+    """Use Gemini (via OpenAI-compatible endpoint) to analyze scraped competitor data and produce structured insights."""
+    api_key = os.getenv("GOOGLE_API_KEY")
     if not api_key:
-        print("ERROR: OPENAI_API_KEY not found in .env")
+        print("ERROR: GOOGLE_API_KEY not found in .env")
         sys.exit(1)
 
-    client = OpenAI(api_key=api_key)
+    client = OpenAI(api_key=api_key, base_url="https://generativelanguage.googleapis.com/v1beta/openai")
 
     # Build the analysis prompt
     scraped_summary = ""
@@ -154,27 +154,55 @@ Produce a JSON analysis with these exact keys:
 
 Return ONLY valid JSON, no markdown formatting or code blocks."""
 
-    try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "You are a competitive intelligence analyst. Return only valid JSON."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.3,
-            max_tokens=2000
-        )
-        result_text = response.choices[0].message.content.strip()
-        # Clean potential markdown wrapping
-        if result_text.startswith("```"):
-            result_text = result_text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
-        return json.loads(result_text)
-    except json.JSONDecodeError as e:
-        print(f"    Warning: AI returned invalid JSON: {e}")
-        return {"error": "Failed to parse AI analysis", "raw": result_text[:500]}
-    except Exception as e:
-        print(f"    Warning: AI analysis failed: {e}")
-        return {"error": str(e)}
+    max_retries = 5
+    base_delay = 10  # seconds
+    for attempt in range(max_retries):
+        try:
+            response = client.chat.completions.create(
+                model="gemini-2.0-flash",
+                messages=[
+                    {"role": "system", "content": "You are a competitive intelligence analyst. Return only valid JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.3,
+                max_tokens=4000
+            )
+            result_text = response.choices[0].message.content
+            if result_text is None:
+                print(f"    Warning: AI returned empty response (attempt {attempt + 1}/{max_retries})")
+                if attempt < max_retries - 1:
+                    time.sleep(base_delay)
+                    continue
+                return {"error": "AI returned empty response after retries"}
+            result_text = result_text.strip()
+            # Clean potential markdown wrapping
+            if result_text.startswith("```"):
+                result_text = result_text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+            return json.loads(result_text)
+        except json.JSONDecodeError as e:
+            print(f"    Warning: AI returned invalid JSON (attempt {attempt + 1}/{max_retries}): {e}")
+            if attempt < max_retries - 1:
+                time.sleep(base_delay)
+                continue
+            return {"error": "Failed to parse AI analysis", "raw": result_text[:500]}
+        except Exception as e:
+            error_str = str(e)
+            # Handle 429 rate limit — extract retry delay if present
+            if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str or "quota" in error_str.lower():
+                # Try to extract suggested retry delay from the error message
+                retry_delay = base_delay * (2 ** attempt)  # exponential backoff: 10, 20, 40, 80, 160s
+                import re
+                match = re.search(r'retryDelay.*?(\d+)s', error_str)
+                if match:
+                    retry_delay = max(int(match.group(1)) + 5, retry_delay)
+                print(f"    Rate limit hit (429). Waiting {retry_delay}s before retry {attempt + 1}/{max_retries}...")
+                time.sleep(retry_delay)
+                continue
+            print(f"    Warning: AI analysis failed (attempt {attempt + 1}/{max_retries}): {e}")
+            if attempt < max_retries - 1:
+                time.sleep(base_delay)
+                continue
+            return {"error": str(e)}
 
 
 def research_all_competitors():
@@ -209,9 +237,10 @@ def research_all_competitors():
         results.append(analysis)
         print(f"    Done. Saved to {individual_path}\n")
         
-        # Rate limit between competitors
+        # Rate limit between competitors — give Gemini free tier time to breathe
         if i < len(competitors):
-            time.sleep(2)
+            print(f"    Waiting 15s before next competitor to respect API rate limits...")
+            time.sleep(15)
 
     # Save combined results
     combined_path = TMP_DIR / "competitors_researched.json"

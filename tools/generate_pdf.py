@@ -51,13 +51,13 @@ def get_logo_base64():
     return base64.b64encode(data).decode("utf-8")
 
 
-def get_threat_color(level, colors):
+def get_threat_color(level, colors=None):
     """Return color based on threat level."""
     level = (level or "").lower()
     if level == "high":
         return "#E74C3C"
     elif level == "medium":
-        return colors.get("primary_gold", "#D4AF37")
+        return "#F39C12"
     return "#2ECC71"
 
 
@@ -112,6 +112,9 @@ HTML_TEMPLATE = """
     .cover-logo {
         width: 140pt;
         margin-bottom: 40pt;
+        background-color: #FFFFFF;
+        padding: 10pt;
+        border-radius: 8px;
     }
     .cover-title {
         font-size: 26pt;
@@ -176,6 +179,9 @@ HTML_TEMPLATE = """
     }
     .page-header img {
         width: 50pt;
+        background-color: #FFFFFF;
+        padding: 4pt;
+        border-radius: 4px;
     }
 
     /* ===== CARDS ===== */
@@ -341,7 +347,8 @@ HTML_TEMPLATE = """
 {% endif %}
 <h1>02 &mdash; Market Overview</h1>
 <div class="section">
-    {% for paragraph in report.market_overview.landscape_description.split('\n') %}
+    {% set landscape = report.get('market_overview', {}).get('landscape_description', '') %}
+    {% for paragraph in landscape.split('\n') %}
         {% if paragraph.strip() %}
         <p>{{ paragraph.strip() }}</p>
         {% endif %}
@@ -350,15 +357,16 @@ HTML_TEMPLATE = """
 
 <h2>Market Trends</h2>
 <ul>
-{% for trend in report.market_overview.market_trends %}
-    <li><span class="gold-bullet">&#9654;</span> {{ trend }}</li>
+{% for trend in report.get('market_overview', {}).get('market_trends', []) %}
+    <li><span class="gold-bullet">&bull;</span> {{ trend }}</li>
 {% endfor %}
 </ul>
 
-{% if report.market_overview.market_size_signals %}
+{% set market_signals = report.get('market_overview', {}).get('market_size_signals', '') %}
+{% if market_signals %}
 <div class="insight-box">
     <div class="insight-box-title">Market Size Signals</div>
-    <p>{{ report.market_overview.market_size_signals }}</p>
+    <p>{{ market_signals }}</p>
 </div>
 {% endif %}
 
@@ -369,17 +377,17 @@ HTML_TEMPLATE = """
 {% endif %}
 <h1>03 &mdash; Competitor Profiles</h1>
 
-{% for comp in report.competitor_profiles %}
+{% for comp in report.get('competitor_profiles', []) %}
 <div class="card">
-    <div class="card-title">{{ comp.name }}</div>
-    <div class="card-subtitle">{{ comp.website }} &bull; Threat: 
-        <span class="badge badge-{{ comp.threat_level }}">{{ comp.threat_level | upper }}</span>
+    <div class="card-title">{{ comp.get('name', 'Unknown') }}</div>
+    <div class="card-subtitle">{{ comp.get('website', '') }} &bull; Threat: 
+        <span class="badge badge-{{ comp.get('threat_level', 'low') | lower }}">{{ comp.get('threat_level', 'N/A') | upper }}</span>
     </div>
-    <p>{{ comp.overview }}</p>
+    <p>{{ comp.get('overview', '') }}</p>
     
     <h3>Products &amp; Services</h3>
     <ul>
-    {% for item in comp.products_services %}
+    {% for item in comp.get('products_services', []) %}
         <li>{{ item }}</li>
     {% endfor %}
     </ul>
@@ -390,8 +398,8 @@ HTML_TEMPLATE = """
             <th>Target Audience</th>
         </tr>
         <tr>
-            <td>{{ comp.pricing_model }}</td>
-            <td>{{ comp.target_audience }}</td>
+            <td>{{ comp.get('pricing_model', 'Unknown') }}</td>
+            <td>{{ comp.get('target_audience', 'N/A') }}</td>
         </tr>
     </table>
     
@@ -400,14 +408,14 @@ HTML_TEMPLATE = """
         <tr>
             <td>
                 <ul>
-                {% for s in comp.strengths %}
+                {% for s in comp.get('strengths', []) %}
                     <li>{{ s }}</li>
                 {% endfor %}
                 </ul>
             </td>
             <td>
                 <ul>
-                {% for w in comp.weaknesses %}
+                {% for w in comp.get('weaknesses', []) %}
                     <li>{{ w }}</li>
                 {% endfor %}
                 </ul>
@@ -417,7 +425,7 @@ HTML_TEMPLATE = """
     
     <div class="insight-box">
         <div class="insight-box-title">Key Takeaway</div>
-        <p>{{ comp.key_takeaway }}</p>
+        <p>{{ comp.get('key_takeaway', '') }}</p>
     </div>
 </div>
 
@@ -436,7 +444,7 @@ HTML_TEMPLATE = """
 {% endif %}
 <h1>04 &mdash; Comparison Matrix</h1>
 
-{% if report.comparison_matrix and report.comparison_matrix.categories %}
+{% if report.get('comparison_matrix') and report.comparison_matrix.get('categories') %}
 <table>
     <tr>
         <th>Competitor</th>
@@ -444,18 +452,22 @@ HTML_TEMPLATE = """
         <th>{{ cat }}</th>
         {% endfor %}
     </tr>
-    {% for comp_name, ratings in report.comparison_matrix.ratings.items() %}
+    {% for comp_name, ratings in report.comparison_matrix.get('ratings', {}).items() %}
     <tr>
         <td style="font-weight: bold; color: {{ colors.primary_gold }};">{{ comp_name }}</td>
         {% for cat in report.comparison_matrix.categories %}
         <td>
-            {% set rating = ratings.get(cat, 'N/A') if ratings is mapping else 'N/A' %}
-            {% if rating.lower() == 'strong' %}
-                <span style="color: #2ECC71;">&#9733; {{ rating }}</span>
-            {% elif rating.lower() == 'moderate' %}
-                <span style="color: #F39C12;">&#9733; {{ rating }}</span>
-            {% elif rating.lower() == 'weak' %}
-                <span style="color: #E74C3C;">&#9733; {{ rating }}</span>
+            {% if ratings is mapping %}
+                {% set rating = ratings.get(cat, 'N/A') %}
+            {% else %}
+                {% set rating = 'N/A' %}
+            {% endif %}
+            {% if rating | lower == 'strong' %}
+                <span style="color: #2ECC71; font-weight: bold;">[Strong]</span>
+            {% elif rating | lower == 'moderate' %}
+                <span style="color: #F39C12; font-weight: bold;">[Moderate]</span>
+            {% elif rating | lower == 'weak' %}
+                <span style="color: #E74C3C; font-weight: bold;">[Weak]</span>
             {% else %}
                 {{ rating }}
             {% endif %}
@@ -473,36 +485,36 @@ HTML_TEMPLATE = """
 {% endif %}
 <h1>05 &mdash; Strategic Insights</h1>
 
-{% if report.strategic_insights %}
+{% if report.get('strategic_insights') %}
 {% set insights = report.strategic_insights %}
 
 <h2>Our Strengths</h2>
 <ul>
-{% for item in insights.our_strengths %}
-    <li><span class="gold-bullet">&#10003;</span> {{ item }}</li>
+{% for item in insights.get('our_strengths', []) %}
+    <li><span style="color: #2ECC71; font-weight: bold;">[+]</span> {{ item }}</li>
 {% endfor %}
 </ul>
 
 <h2>Areas to Improve</h2>
 <ul>
-{% for item in insights.areas_to_improve %}
-    <li><span style="color: #F39C12;">&#9888;</span> {{ item }}</li>
+{% for item in insights.get('areas_to_improve', []) %}
+    <li><span style="color: #F39C12; font-weight: bold;">[-]</span> {{ item }}</li>
 {% endfor %}
 </ul>
 
 <h2>Market Gaps &amp; Opportunities</h2>
 <div class="insight-box">
     <ul>
-    {% for item in insights.market_gaps %}
-        <li><span class="gold-bullet">&#9654;</span> {{ item }}</li>
+    {% for item in insights.get('market_gaps', []) %}
+        <li><span class="gold-bullet">&bull;</span> {{ item }}</li>
     {% endfor %}
     </ul>
 </div>
 
 <h2>Threats to Monitor</h2>
 <ul>
-{% for item in insights.threats %}
-    <li><span style="color: #E74C3C;">&#9888;</span> {{ item }}</li>
+{% for item in insights.get('threats', []) %}
+    <li><span style="color: #E74C3C; font-weight: bold;">[!]</span> {{ item }}</li>
 {% endfor %}
 </ul>
 
@@ -512,8 +524,8 @@ HTML_TEMPLATE = """
 <div class="insight-box">
     <div class="insight-box-title">Immediate Opportunities</div>
     <ul>
-    {% for item in insights.quick_wins %}
-        <li><span class="gold-bullet">&#9733;</span> {{ item }}</li>
+    {% for item in insights.get('quick_wins', []) %}
+        <li><span class="gold-bullet">&bull;</span> {{ item }}</li>
     {% endfor %}
     </ul>
 </div>
@@ -522,8 +534,8 @@ HTML_TEMPLATE = """
 <div class="insight-box">
     <div class="insight-box-title">6-12 Month Initiatives</div>
     <ul>
-    {% for item in insights.long_term_plays %}
-        <li><span class="gold-bullet">&#9654;</span> {{ item }}</li>
+    {% for item in insights.get('long_term_plays', []) %}
+        <li><span class="gold-bullet">&bull;</span> {{ item }}</li>
     {% endfor %}
     </ul>
 </div>
@@ -536,7 +548,7 @@ HTML_TEMPLATE = """
 {% endif %}
 <h1>06 &mdash; Action Items</h1>
 
-{% if report.action_items %}
+{% if report.get('action_items') %}
 <table>
     <tr>
         <th style="width: 12%;">Priority</th>
@@ -546,10 +558,10 @@ HTML_TEMPLATE = """
     </tr>
     {% for item in report.action_items %}
     <tr>
-        <td><span class="badge badge-{{ item.priority }}">{{ item.priority | upper }}</span></td>
-        <td style="font-weight: bold;">{{ item.action }}</td>
-        <td>{{ item.rationale }}</td>
-        <td><span class="badge badge-{{ item.effort }}">{{ item.effort | upper }}</span></td>
+        <td><span class="badge badge-{{ item.get('priority', 'low') | lower }}">{{ item.get('priority', 'N/A') | upper }}</span></td>
+        <td style="font-weight: bold;">{{ item.get('action', '') }}</td>
+        <td>{{ item.get('rationale', '') }}</td>
+        <td><span class="badge badge-{{ item.get('effort', 'low') | lower }}">{{ item.get('effort', 'N/A') | upper }}</span></td>
     </tr>
     {% endfor %}
 </table>

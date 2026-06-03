@@ -51,8 +51,8 @@ def check_prerequisites():
     
     if not os.getenv("TAVILY_API_KEY"):
         issues.append("Missing in .env: TAVILY_API_KEY")
-    if not os.getenv("OPENAI_API_KEY"):
-        issues.append("Missing in .env: OPENAI_API_KEY")
+    if not os.getenv("GOOGLE_API_KEY"):
+        issues.append("Missing in .env: GOOGLE_API_KEY")
     
     return issues
 
@@ -80,19 +80,19 @@ def run_phase(phase_name):
 def run_full_pipeline():
     """Run the complete competitor analysis pipeline."""
     print("=" * 60)
-    print("   COMPETITOR ANALYSIS — FULL PIPELINE")
+    print("   COMPETITOR ANALYSIS - FULL PIPELINE")
     print("=" * 60)
     
     # Prerequisites check
     print("\n[PRE-CHECK] Verifying prerequisites...")
     issues = check_prerequisites()
     if issues:
-        print("\n❌ Cannot proceed. Fix these issues first:\n")
+        print("\n[FAIL] Cannot proceed. Fix these issues first:\n")
         for issue in issues:
-            print(f"  • {issue}")
+            print(f"  - {issue}")
         print()
         sys.exit(1)
-    print("  ✓ All prerequisites met.\n")
+    print("  [OK] All prerequisites met.\n")
     
     # Phase 2: Discover
     print("=" * 60)
@@ -123,7 +123,7 @@ def run_full_pipeline():
     pdf_main()
     
     print("\n" + "=" * 60)
-    print("  ✓ PIPELINE COMPLETE")
+    print("  [OK] PIPELINE COMPLETE")
     print("=" * 60)
 
 

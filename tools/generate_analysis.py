@@ -40,18 +40,27 @@ def load_business_profile():
 
 
 def generate_analysis(profile, competitor_data):
-    """Use OpenAI to produce a comprehensive competitive analysis report."""
-    api_key = os.getenv("OPENAI_API_KEY")
+    """Use Gemini (via OpenAI-compatible endpoint) to produce a comprehensive competitive analysis report."""
+    api_key = os.getenv("GOOGLE_API_KEY")
     if not api_key:
-        print("ERROR: OPENAI_API_KEY not found in .env")
+        print("ERROR: GOOGLE_API_KEY not found in .env")
         sys.exit(1)
 
-    client = OpenAI(api_key=api_key)
+    client = OpenAI(api_key=api_key, base_url="https://generativelanguage.googleapis.com/v1beta/openai")
     competitors = competitor_data.get("competitors", [])
+
+    # Filter out any competitors that failed research (have an "error" key)
+    valid_competitors = [c for c in competitors if isinstance(c, dict) and "error" not in c]
+    errored = len(competitors) - len(valid_competitors)
+    if errored:
+        print(f"  Note: Skipping {errored} competitor(s) that had research errors.")
+    if not valid_competitors:
+        print("ERROR: No valid competitor data found. Re-run research phase.")
+        sys.exit(1)
 
     # Build competitor summaries for the prompt
     comp_summaries = ""
-    for i, comp in enumerate(competitors, 1):
+    for i, comp in enumerate(valid_competitors, 1):
         if isinstance(comp, dict) and "error" not in comp:
             comp_summaries += f"""
 --- Competitor {i}: {comp.get('company_name', 'Unknown')} ---
@@ -135,42 +144,62 @@ Return ONLY valid JSON. Be specific, data-driven, and actionable."""
 
     print("Generating comprehensive analysis with AI...")
     
-    try:
-        response = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": "You are a senior competitive intelligence strategist. Return only valid JSON. Be thorough and specific."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.4,
-            max_tokens=6000
-        )
-        result_text = response.choices[0].message.content.strip()
-        # Clean potential markdown wrapping
-        if result_text.startswith("```"):
-            result_text = result_text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
-        
-        analysis = json.loads(result_text)
-        
-        # Save analysis
-        output_path = TMP_DIR / "analysis_report.json"
-        with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(analysis, f, indent=2, ensure_ascii=False)
-        
-        print(f"Analysis complete. Saved to {output_path}")
-        return analysis
-        
-    except json.JSONDecodeError as e:
-        print(f"ERROR: AI returned invalid JSON: {e}")
-        # Save raw output for debugging
-        error_path = TMP_DIR / "analysis_raw_output.txt"
-        with open(error_path, "w", encoding="utf-8") as f:
-            f.write(result_text)
-        print(f"Raw output saved to {error_path}")
-        sys.exit(1)
-    except Exception as e:
-        print(f"ERROR: Analysis generation failed: {e}")
-        sys.exit(1)
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            response = client.chat.completions.create(
+                model="gemini-2.0-flash",
+                messages=[
+                    {"role": "system", "content": "You are a senior competitive intelligence strategist. Return only valid JSON. Be thorough and specific."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.4,
+                max_tokens=8000
+            )
+            result_text = response.choices[0].message.content
+            if result_text is None:
+                print(f"  Warning: AI returned empty response (attempt {attempt + 1}/{max_retries})")
+                if attempt < max_retries - 1:
+                    import time
+                    time.sleep(5)
+                    continue
+                print("ERROR: AI returned empty response after retries")
+                sys.exit(1)
+            result_text = result_text.strip()
+            # Clean potential markdown wrapping
+            if result_text.startswith("```"):
+                result_text = result_text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+            
+            analysis = json.loads(result_text)
+            
+            # Save analysis
+            output_path = TMP_DIR / "analysis_report.json"
+            with open(output_path, "w", encoding="utf-8") as f:
+                json.dump(analysis, f, indent=2, ensure_ascii=False)
+            
+            print(f"Analysis complete. Saved to {output_path}")
+            return analysis
+            
+        except json.JSONDecodeError as e:
+            print(f"  Warning: AI returned invalid JSON (attempt {attempt + 1}/{max_retries}): {e}")
+            if attempt < max_retries - 1:
+                import time
+                time.sleep(5)
+                continue
+            # Save raw output for debugging
+            error_path = TMP_DIR / "analysis_raw_output.txt"
+            with open(error_path, "w", encoding="utf-8") as f:
+                f.write(result_text)
+            print(f"Raw output saved to {error_path}")
+            sys.exit(1)
+        except Exception as e:
+            print(f"  Warning: Analysis generation failed (attempt {attempt + 1}/{max_retries}): {e}")
+            if attempt < max_retries - 1:
+                import time
+                time.sleep(5)
+                continue
+            print(f"ERROR: Analysis generation failed after retries: {e}")
+            sys.exit(1)
 
 
 def main():

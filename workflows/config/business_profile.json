@@ -1,10 +1,30 @@
 {
-  "name": "Shah Faisal Khalil",
+  "name": "Get Leads with AI",
   "website": "https://github.com/faisalkhalildev",
-  "industry": "",
-  "offerings": [],
-  "target_audience": "",
-  "differentiators": [],
-  "keywords": [],
+  "industry": "AI-powered lead generation and sales automation",
+  "offerings": [
+    "All-in-one AI lead generation platform",
+    "AI lead scraper and list builder",
+    "AI-personalized email writer",
+    "Outreach campaign manager"
+  ],
+  "target_audience": "Marketing agencies looking to scale B2B lead generation and outreach",
+  "differentiators": [
+    "All-in-one unified system (scraping, AI writing, and campaign management in one place)",
+    "Cost-effective credit-based usage model",
+    "Specifically optimized for marketing agencies' client workflows"
+  ],
+  "keywords": [
+    "AI lead generation",
+    "all-in-one lead scraper",
+    "AI email writer",
+    "campaign manager automation",
+    "marketing agency sales outreach",
+    "credit based B2B lead tool"
+  ],
+  "pricing": {
+    "model": "Credit-based usage",
+    "range": "$200/month per client"
+  },
   "known_competitors": []
 }
