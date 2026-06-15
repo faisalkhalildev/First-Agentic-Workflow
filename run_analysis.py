@@ -50,7 +50,9 @@ def check_prerequisites():
     load_dotenv()
     
     if not os.getenv("TAVILY_API_KEY"):
-        issues.append("Missing in .env: TAVILY_API_KEY")
+        raw_path = ROOT / ".tmp" / "competitors_raw.json"
+        if not raw_path.exists():
+            issues.append("Missing in .env: TAVILY_API_KEY")
     if not os.getenv("GOOGLE_API_KEY"):
         issues.append("Missing in .env: GOOGLE_API_KEY")
     
@@ -98,8 +100,13 @@ def run_full_pipeline():
     print("=" * 60)
     print("  PHASE 2: Competitor Discovery")
     print("=" * 60)
-    from tools.discover_competitors import main as discover_main
-    discover_main()
+    import os
+    raw_path = ROOT / ".tmp" / "competitors_raw.json"
+    if not os.getenv("TAVILY_API_KEY") and raw_path.exists():
+        print("  [SKIP] TAVILY_API_KEY not set. Using existing competitors_raw.json.")
+    else:
+        from tools.discover_competitors import main as discover_main
+        discover_main()
     
     # Phase 3: Research
     print("\n" + "=" * 60)
