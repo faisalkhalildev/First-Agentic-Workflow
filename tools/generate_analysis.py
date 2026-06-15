@@ -100,20 +100,12 @@ Generate a JSON report with this EXACT structure:
         "market_trends": ["list of 4-6 current market trends"],
         "market_size_signals": "any indicators about market size or growth"
     }},
-    "competitor_profiles": [
-        {{
-            "name": "string",
-            "website": "string",
-            "overview": "string",
-            "products_services": ["list"],
-            "pricing_model": "string",
-            "target_audience": "string",
-            "strengths": ["list"],
-            "weaknesses": ["list"],
+    "competitor_strategic_notes": {{
+        "competitor_name": {{
             "threat_level": "low/medium/high",
             "key_takeaway": "one sentence summarizing what we should learn from them"
         }}
-    ],
+    }},
     "comparison_matrix": {{
         "categories": ["list of comparison categories like Pricing, Features, UX, etc."],
         "ratings": {{
@@ -148,11 +140,12 @@ Return ONLY valid JSON. Be specific, data-driven, and actionable."""
     for attempt in range(max_retries):
         try:
             response = client.chat.completions.create(
-                model="gemini-2.0-flash",
+                model="models/gemini-2.5-flash",
                 messages=[
-                    {"role": "system", "content": "You are a senior competitive intelligence strategist. Return only valid JSON. Be thorough and specific."},
+                    {"role": "system", "content": "You are a senior competitive intelligence strategist. Return only valid JSON. Be highly concise but professional and specific, to ensure the JSON response is not truncated."},
                     {"role": "user", "content": prompt}
                 ],
+                response_format={"type": "json_object"},
                 temperature=0.4,
                 max_tokens=8000
             )
@@ -171,6 +164,38 @@ Return ONLY valid JSON. Be specific, data-driven, and actionable."""
                 result_text = result_text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
             
             analysis = json.loads(result_text)
+            
+            # Reconstruct competitor_profiles by combining AI strategic notes with local researched competitor files
+            competitor_profiles = []
+            strategic_notes = analysis.get("competitor_strategic_notes", {})
+            for comp in valid_competitors:
+                comp_name = comp.get("company_name", "Unknown")
+                website = comp.get("website", "")
+                
+                # Find matching strategic note by name or domain
+                notes = None
+                for key, val in strategic_notes.items():
+                    if key.lower() in comp_name.lower() or comp_name.lower() in key.lower() or key.lower() in website.lower():
+                        notes = val
+                        break
+                
+                threat_level = notes.get("threat_level", "medium") if notes else "medium"
+                key_takeaway = notes.get("key_takeaway", "") if notes else f"Monitor {comp_name} as a competitor."
+                
+                competitor_profiles.append({
+                    "name": comp_name,
+                    "website": website,
+                    "overview": comp.get("overview", ""),
+                    "products_services": comp.get("products_services", []),
+                    "pricing_model": comp.get("pricing_model", "Unknown"),
+                    "target_audience": comp.get("target_audience", "N/A"),
+                    "strengths": comp.get("strengths", []),
+                    "weaknesses": comp.get("weaknesses", []),
+                    "threat_level": threat_level,
+                    "key_takeaway": key_takeaway
+                })
+            
+            analysis["competitor_profiles"] = competitor_profiles
             
             # Save analysis
             output_path = TMP_DIR / "analysis_report.json"

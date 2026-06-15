@@ -159,7 +159,7 @@ Return ONLY valid JSON, no markdown formatting or code blocks."""
     for attempt in range(max_retries):
         try:
             response = client.chat.completions.create(
-                model="gemini-2.0-flash",
+                model="models/gemini-2.5-flash",
                 messages=[
                     {"role": "system", "content": "You are a competitive intelligence analyst. Return only valid JSON."},
                     {"role": "user", "content": prompt}
