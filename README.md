@@ -25,3 +25,11 @@ pip install -r requirements.txt
 ```
 
 Add your API keys to `.env` before running any tools.
+env.example
+GOOGLE_API_KEY=-----
+GOOGLE_SHEETS_SPREADSHEET_ID=----
+OPENAI_API_KEY=-----
+
+
+# --- Other Services ---
+# Add additional keys as needed
